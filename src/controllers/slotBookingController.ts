@@ -121,7 +121,7 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
 
     // Generate JWT token
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
-      expiresIn: "1h",
+      expiresIn: "3h",
     });
 
     // Return success response
@@ -167,7 +167,7 @@ export const centersListApi = async (
     return res.status(200).send({
       success: true,
       total_count: searchResults.length,
-      data: searchResults,
+      centers: searchResults,
     });
   } catch (error) {
     const typedError = error as TypeError;
@@ -356,49 +356,81 @@ export const viewBookingsApi = async (
   res: Response
 ): Promise<Response> => {
   let connection;
-  const { id, facility_id, booking_date, customer_name } = req.query;
+  const {
+    id,
+    facility_id,
+    booking_date,
+    customer_name,
+    page = 1,
+    per_page = 10,
+  } = req.query;
 
   try {
     connection = await db.getConnection();
 
-    let bookingsQuery = "SELECT * FROM bookings WHERE 1=1";
+    let bookingsQuery =
+      "SELECT u.name as user_name, b.* ,f.name as facility_name, c.name as center_name " +
+      "FROM bookings AS b " +
+      "INNER JOIN facilities AS f ON f.id = b.facility_id " +
+      "INNER JOIN centers AS c ON c.id = f.center_id " +
+      "INNER JOIN users AS u ON b.user_id = u.id WHERE 1=1";
+    let countQuery =
+      "SELECT COUNT(*) as total_count " +
+      "FROM bookings AS b " +
+      "INNER JOIN facilities AS f ON f.id = b.facility_id " +
+      "INNER JOIN centers AS c ON c.id = f.center_id " +
+      "INNER JOIN users AS u ON b.user_id = u.id WHERE 1=1";
+
     const queryParams: (string | number)[] = [];
+
     if (id) {
-      bookingsQuery += " AND id = ?";
+      bookingsQuery += " AND b.id = ?";
+      countQuery += " AND b.id = ?";
       queryParams.push(id as string);
     }
 
     if (facility_id) {
-      bookingsQuery += " AND facility_id = ?";
+      bookingsQuery += " AND b.facility_id = ?";
+      countQuery += " AND b.facility_id = ?";
       queryParams.push(facility_id as string);
     }
 
     if (booking_date) {
-      bookingsQuery += " AND booking_date = ?";
+      bookingsQuery += " AND b.booking_date = ?";
+      countQuery += " AND b.booking_date = ?";
       queryParams.push(booking_date as string);
     }
 
     if (customer_name) {
-      bookingsQuery += " AND customer_name LIKE ?";
+      bookingsQuery += " AND b.customer_name LIKE ?";
+      countQuery += " AND b.customer_name LIKE ?";
       queryParams.push(`%${customer_name}%`);
     }
+    bookingsQuery += " ORDER BY b.id DESC";
+
+    const offset =
+      (parseInt(page as string, 10) - 1) * parseInt(per_page as string, 10);
+    bookingsQuery += " LIMIT ? OFFSET ?";
+    queryParams.push(parseInt(per_page as string), offset);
 
     const [bookingsResults] = await connection.query(
       bookingsQuery,
       queryParams
     );
 
-    if (bookingsResults.length === 0) {
-      return res.status(404).send({
-        success: false,
-        message: "No bookings found with the provided filters.",
-      });
-    }
+    const [countResults] = await connection.query(
+      countQuery,
+      queryParams.slice(0, -2)
+    );
 
     return res.status(200).send({
       success: true,
-      total_count: bookingsResults.length,
-      data: bookingsResults,
+      total_count: countResults[0].total_count,
+      booking_list: bookingsResults,
+      current_page: parseInt(page as string, 10),
+      total_pages: Math.ceil(
+        countResults[0].total_count / parseInt(per_page as string, 10)
+      ),
     });
   } catch (error) {
     const typedError = error as Error;
@@ -635,11 +667,13 @@ export const slotAvailabilityApi = async (
           WHERE booking_date = ? 
           AND start_time < ? 
           AND end_time > ?
+          AND facility_id = ?
         `;
           const [bookingResult] = await connection.query(bookingCheckQuery, [
             booking_date,
             slot.end_time,
             slot.start_time,
+            facility_id,
           ]);
 
           return {
@@ -654,7 +688,7 @@ export const slotAvailabilityApi = async (
     // Return the final result
     return res.status(200).send({
       success: true,
-      data,
+      available_slots: data,
     });
   } catch (error) {
     const typedError = error as Error;
