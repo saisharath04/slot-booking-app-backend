@@ -7,7 +7,6 @@ import slotBookingService from "./services/slotBookingService"
 dotenv.config();
 const app = express();
 
-// Middleware
 app.use(
   cors({
     origin: "*",
@@ -16,7 +15,6 @@ app.use(
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Routes
 app.use("/api", slotBookingService);
 
 const PORT = process.env.PORT || 5000;
