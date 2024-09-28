@@ -1,0 +1,21 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const dotenv_1 = __importDefault(require("dotenv"));
+const slotBookingController_1 = require("../controllers/slotBookingController");
+const authMiddleware_1 = require("../middlewares/authMiddleware");
+dotenv_1.default.config();
+const router = (0, express_1.Router)();
+router.post("/auth/login", slotBookingController_1.login);
+router.post("/auth/register", slotBookingController_1.register);
+router.get("/centers", authMiddleware_1.authenticateJWT, slotBookingController_1.centersListApi);
+router.get("/centers/:id/facilities", authMiddleware_1.authenticateJWT, slotBookingController_1.facilitiesListApi);
+router.post("/bookings/create", authMiddleware_1.authenticateJWT, slotBookingController_1.createBookingApi);
+router.get("/bookings/list", authMiddleware_1.authenticateJWT, slotBookingController_1.viewBookingsApi);
+router.post("/bookings/delete", authMiddleware_1.authenticateJWT, slotBookingController_1.deleteBookingApi);
+router.post("/bookings/update", authMiddleware_1.authenticateJWT, slotBookingController_1.updateBookingApi);
+router.get("/bookings/slot_availability", authMiddleware_1.authenticateJWT, slotBookingController_1.slotAvailabilityApi);
+exports.default = router;
