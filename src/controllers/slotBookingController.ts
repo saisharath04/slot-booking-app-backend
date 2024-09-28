@@ -128,7 +128,7 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
     return res.status(200).json({
       success: true,
       message: "You Logged successfully",
-      user: user,
+      user_details: user,
       token: token,
     });
   } catch (error) {
